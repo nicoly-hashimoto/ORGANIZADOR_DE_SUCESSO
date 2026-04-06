@@ -41,6 +41,7 @@ http://localhost:3001
 
 - Cadastra tarefas, objetivos e categorias
 - Controla status entre ideias, execucao e finalizada
+- Permite criar subtarefas em checklist dentro de cada tarefa
 - Registra data de inicio e data de fim das tarefas
 - Calcula o tempo de desenvolvimento de cada atividade
 - Mantem uma agenda com lembretes que so desaparecem quando voce exclui manualmente

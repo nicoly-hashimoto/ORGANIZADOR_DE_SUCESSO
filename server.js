@@ -17,6 +17,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 db.pragma("journal_mode = DELETE");
+db.pragma("foreign_keys = ON");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
@@ -54,6 +55,19 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subtasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+  );
+`);
+
 function ensureColumn(tableName, columnName, definition) {
   const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
   const exists = columns.some((column) => column.name === columnName);
@@ -72,15 +86,34 @@ ensureColumn("reminders", "notified_at", "TEXT");
 
 const allowedStatus = new Set(["ideia", "execucao", "finalizada"]);
 const allowedPriority = new Set(["baixa", "media", "alta"]);
+const subtasksByTaskStatement = db.prepare(`
+  SELECT *
+  FROM subtasks
+  WHERE task_id = ?
+  ORDER BY completed ASC, created_at ASC, id ASC
+`);
+
+function mapSubtask(row) {
+  return {
+    ...row,
+    completed: Boolean(row.completed)
+  };
+}
 
 function mapTask(row) {
+  const subtasks = subtasksByTaskStatement.all(row.id).map(mapSubtask);
+  const completedSubtasks = subtasks.filter((subtask) => subtask.completed).length;
+
   return {
     ...row,
     priority: allowedPriority.has(row.priority) ? row.priority : "media",
     progress: Number(row.progress),
     target_value: Number(row.target_value),
     current_value: Number(row.current_value),
-    duration_days: calculateDurationDays(row.start_date, row.end_date || row.completed_at)
+    duration_days: calculateDurationDays(row.start_date, row.end_date || row.completed_at),
+    subtasks,
+    subtasks_total: subtasks.length,
+    subtasks_completed: completedSubtasks
   };
 }
 
@@ -333,6 +366,80 @@ app.delete("/api/tasks/:id", (req, res) => {
 
   if (!result.changes) {
     return res.status(404).json({ error: "Tarefa nao encontrada." });
+  }
+
+  return res.status(204).send();
+});
+
+app.post("/api/tasks/:id/subtasks", (req, res) => {
+  const taskId = Number(req.params.id);
+  const task = db.prepare("SELECT id FROM tasks WHERE id = ?").get(taskId);
+
+  if (!task) {
+    return res.status(404).json({ error: "Tarefa nao encontrada." });
+  }
+
+  const title = String(req.body.title || "").trim();
+  if (!title) {
+    return res.status(400).json({ error: "O titulo da subtarefa e obrigatorio." });
+  }
+
+  const result = db
+    .prepare(`
+      INSERT INTO subtasks (task_id, title, completed, completed_at)
+      VALUES (@task_id, @title, 0, NULL)
+    `)
+    .run({
+      task_id: taskId,
+      title
+    });
+
+  const subtask = db.prepare("SELECT * FROM subtasks WHERE id = ?").get(result.lastInsertRowid);
+  return res.status(201).json(mapSubtask(subtask));
+});
+
+app.put("/api/subtasks/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id);
+
+  if (!existing) {
+    return res.status(404).json({ error: "Subtarefa nao encontrada." });
+  }
+
+  const nextTitle = req.body.title ?? existing.title;
+  const title = String(nextTitle || "").trim();
+  if (!title) {
+    return res.status(400).json({ error: "O titulo da subtarefa e obrigatorio." });
+  }
+
+  const completed = req.body.completed === undefined ? existing.completed : Number(req.body.completed) ? 1 : 0;
+  const completedAt = completed ? existing.completed_at || new Date().toISOString() : null;
+
+  db.prepare(`
+    UPDATE subtasks
+    SET
+      title = @title,
+      completed = @completed,
+      updated_at = CURRENT_TIMESTAMP,
+      completed_at = @completed_at
+    WHERE id = @id
+  `).run({
+    id,
+    title,
+    completed,
+    completed_at: completedAt
+  });
+
+  const subtask = db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id);
+  return res.json(mapSubtask(subtask));
+});
+
+app.delete("/api/subtasks/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const result = db.prepare("DELETE FROM subtasks WHERE id = ?").run(id);
+
+  if (!result.changes) {
+    return res.status(404).json({ error: "Subtarefa nao encontrada." });
   }
 
   return res.status(204).send();

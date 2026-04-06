@@ -62,7 +62,7 @@ function escapeHtml(value) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
@@ -133,6 +133,17 @@ function formatDuration(days) {
     return "1 dia";
   }
   return `${days} dias`;
+}
+
+function formatSubtaskSummary(task) {
+  const total = Number(task.subtasks_total) || 0;
+  const completed = Number(task.subtasks_completed) || 0;
+
+  if (!total) {
+    return "Sem checklist";
+  }
+
+  return `${completed}/${total} subtarefas`;
 }
 
 function todayString() {
@@ -246,6 +257,9 @@ function describeFocus(task) {
   }
   if (normalizePriority(task.priority) === "alta") {
     return "Prioridade alta";
+  }
+  if ((task.subtasks_total || 0) > 0 && (task.subtasks_completed || 0) < (task.subtasks_total || 0)) {
+    return "Checklist em andamento";
   }
   return "Bom proximo passo";
 }
@@ -546,6 +560,7 @@ function renderTodayFocus() {
             <span><strong>Prazo:</strong> ${escapeHtml(normalizeDate(task.due_date))}</span>
             <span><strong>Categoria:</strong> ${escapeHtml(task.category || "Sem categoria")}</span>
             <span><strong>Meta:</strong> ${escapeHtml(task.goal || "Sem meta definida")}</span>
+            <span><strong>Checklist:</strong> ${escapeHtml(formatSubtaskSummary(task))}</span>
           </div>
         </article>
       `
@@ -668,6 +683,56 @@ function renderTasks() {
                           <p><strong>Fim:</strong> ${escapeHtml(normalizeDate(task.end_date))}</p>
                           <p><strong>Prazo:</strong> ${escapeHtml(normalizeDate(task.due_date))}</p>
                           <p><strong>Duracao:</strong> ${escapeHtml(formatDuration(task.duration_days))}</p>
+                          <p><strong>Checklist:</strong> ${escapeHtml(formatSubtaskSummary(task))}</p>
+
+                          <div class="subtask-section">
+                            <div class="subtask-header">
+                              <strong>Subtarefas</strong>
+                              <span>${escapeHtml(formatSubtaskSummary(task))}</span>
+                            </div>
+                            ${
+                              (task.subtasks || []).length
+                                ? `
+                                  <div class="subtask-list">
+                                    ${task.subtasks
+                                      .map(
+                                        (subtask) => `
+                                          <label class="subtask-item ${subtask.completed ? "is-complete" : ""}">
+                                            <input
+                                              type="checkbox"
+                                              data-action="toggle-subtask"
+                                              data-id="${task.id}"
+                                              data-subtask-id="${subtask.id}"
+                                              ${subtask.completed ? "checked" : ""}
+                                            />
+                                            <span>${escapeHtml(subtask.title)}</span>
+                                            <button
+                                              type="button"
+                                              class="subtask-delete"
+                                              data-action="delete-subtask"
+                                              data-id="${task.id}"
+                                              data-subtask-id="${subtask.id}"
+                                            >
+                                              Excluir
+                                            </button>
+                                          </label>
+                                        `
+                                      )
+                                      .join("")}
+                                  </div>
+                                `
+                                : `<p class="empty-state">Nenhuma subtarefa criada ainda.</p>`
+                            }
+                            <form class="subtask-form" data-action="add-subtask" data-id="${task.id}">
+                              <input
+                                type="text"
+                                name="subtask-title"
+                                placeholder="Adicionar uma subtarefa"
+                                maxlength="120"
+                              />
+                              <button type="submit" class="mini-btn">Adicionar</button>
+                            </form>
+                          </div>
 
                           <div class="task-actions">
                             <button class="mini-btn" data-action="edit" data-id="${task.id}">Editar</button>
@@ -926,13 +991,55 @@ async function handleReminderSubmit(event) {
 }
 
 async function handleTaskAction(event) {
+  const subtaskForm = event.target.closest("form[data-action='add-subtask']");
+  if (subtaskForm) {
+    event.preventDefault();
+    const taskId = Number(subtaskForm.dataset.id);
+    const input = subtaskForm.querySelector("input[name='subtask-title']");
+    const title = input?.value.trim();
+
+    if (!title) {
+      alert("Digite o titulo da subtarefa.");
+      return;
+    }
+
+    try {
+      await fetchJson(`/api/tasks/${taskId}/subtasks`, {
+        method: "POST",
+        body: JSON.stringify({ title })
+      });
+      await loadData();
+    } catch (error) {
+      alert(error.message);
+    }
+
+    return;
+  }
+
   const button = event.target.closest("button[data-action]");
-  if (!button) return;
+  const checkbox = event.target.closest("input[data-action='toggle-subtask']");
+  if (!button && !checkbox) return;
+
+  if (checkbox) {
+    try {
+      await fetchJson(`/api/subtasks/${Number(checkbox.dataset.subtaskId)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          completed: checkbox.checked
+        })
+      });
+      await loadData();
+    } catch (error) {
+      checkbox.checked = !checkbox.checked;
+      alert(error.message);
+    }
+    return;
+  }
 
   const id = Number(button.dataset.id);
   const action = button.dataset.action;
   const task = tasks.find((item) => item.id === id);
-  if (!task) return;
+  if (action !== "delete-subtask" && !task) return;
 
   try {
     if (action === "edit") {
@@ -961,6 +1068,14 @@ async function handleTaskAction(event) {
           start_date: task.start_date || todayString(),
           end_date: nextStatus === "finalizada" ? task.end_date || todayString() : task.end_date
         })
+      });
+    }
+
+    if (action === "delete-subtask") {
+      const confirmed = window.confirm("Deseja excluir esta subtarefa?");
+      if (!confirmed) return;
+      await fetchJson(`/api/subtasks/${Number(button.dataset.subtaskId)}`, {
+        method: "DELETE"
       });
     }
 
