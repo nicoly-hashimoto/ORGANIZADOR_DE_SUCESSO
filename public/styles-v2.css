@@ -335,14 +335,17 @@ textarea {
 
 .status-chart,
 .progress-chart,
-.agenda-summary {
+.agenda-summary,
+.focus-summary,
+.focus-list {
   display: grid;
   gap: 14px;
 }
 
 .status-row,
 .progress-item,
-.summary-card {
+.summary-card,
+.focus-item {
   display: grid;
   gap: 8px;
 }
@@ -375,6 +378,78 @@ textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+
+.focus-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.focus-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.focus-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.focus-item {
+  padding: 16px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 242, 232, 0.92));
+  border: 1px solid rgba(31, 42, 31, 0.08);
+}
+
+.focus-item.is-urgent {
+  border-color: rgba(181, 82, 57, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(181, 82, 57, 0.08);
+}
+
+.focus-item.is-soon {
+  border-color: rgba(198, 124, 78, 0.26);
+}
+
+.focus-item.is-steady {
+  border-color: rgba(45, 106, 79, 0.2);
+}
+
+.focus-header,
+.focus-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.focus-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.focus-score {
+  min-width: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(45, 106, 79, 0.1);
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.focus-item p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.focus-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  flex-wrap: wrap;
 }
 
 .task-column {
@@ -516,6 +591,11 @@ th {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .focus-summary,
+  .focus-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .filters-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -530,7 +610,9 @@ th {
   .grid-3,
   .task-columns,
   .stats-grid,
-  .filters-panel {
+  .filters-panel,
+  .focus-summary,
+  .focus-list {
     grid-template-columns: 1fr;
   }
 

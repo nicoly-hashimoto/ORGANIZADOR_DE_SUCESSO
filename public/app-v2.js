@@ -7,6 +7,8 @@ const statusChart = document.getElementById("status-chart");
 const progressChart = document.getElementById("progress-chart");
 const taskColumns = document.getElementById("task-columns");
 const goalTableBody = document.getElementById("goal-table-body");
+const focusSummary = document.getElementById("focus-summary");
+const focusList = document.getElementById("focus-list");
 const taskSearchInput = document.getElementById("task-search");
 const filterStatusInput = document.getElementById("filter-status");
 const filterPriorityInput = document.getElementById("filter-priority");
@@ -203,6 +205,95 @@ function taskMatchesFilters(task) {
   return matchesDueFilter(task, taskFilters.due);
 }
 
+function daysUntil(dateValue) {
+  const target = parseDateOnly(dateValue);
+  const today = parseDateOnly(todayString());
+  if (!target || !today) return null;
+  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
+
+function focusTone(task) {
+  const dueInDays = daysUntil(task.due_date);
+  if (dueInDays !== null && dueInDays < 0 && task.status !== "finalizada") {
+    return "is-urgent";
+  }
+  if (dueInDays !== null && dueInDays <= 2 && task.status !== "finalizada") {
+    return "is-soon";
+  }
+  return "is-steady";
+}
+
+function describeFocus(task) {
+  const dueInDays = daysUntil(task.due_date);
+
+  if (dueInDays !== null) {
+    if (dueInDays < 0 && task.status !== "finalizada") {
+      return `Atrasada ha ${Math.abs(dueInDays)} ${Math.abs(dueInDays) === 1 ? "dia" : "dias"}`;
+    }
+    if (dueInDays === 0 && task.status !== "finalizada") {
+      return "Vence hoje";
+    }
+    if (dueInDays === 1 && task.status !== "finalizada") {
+      return "Vence amanha";
+    }
+    if (dueInDays > 1 && dueInDays <= 7 && task.status !== "finalizada") {
+      return `Vence em ${dueInDays} dias`;
+    }
+  }
+
+  if (task.status === "execucao") {
+    return "Ja esta em execucao";
+  }
+  if (normalizePriority(task.priority) === "alta") {
+    return "Prioridade alta";
+  }
+  return "Bom proximo passo";
+}
+
+function calculateFocusScore(task) {
+  let score = 0;
+  const priority = normalizePriority(task.priority);
+  const dueInDays = daysUntil(task.due_date);
+
+  if (task.status === "finalizada") {
+    return -1;
+  }
+  if (task.status === "execucao") score += 40;
+  if (priority === "alta") score += 30;
+  if (priority === "media") score += 12;
+  if (task.current_value === 0) score += 4;
+  if (task.progress > 0 && task.progress < 100) score += 8;
+
+  if (dueInDays !== null) {
+    if (dueInDays < 0) score += 60;
+    else if (dueInDays === 0) score += 45;
+    else if (dueInDays === 1) score += 34;
+    else if (dueInDays <= 3) score += 22;
+    else if (dueInDays <= 7) score += 12;
+  } else {
+    score += 2;
+  }
+
+  return score;
+}
+
+function getTodayFocusTasks() {
+  return tasks
+    .map((task) => ({
+      ...task,
+      focus_score: calculateFocusScore(task),
+      due_in_days: daysUntil(task.due_date)
+    }))
+    .filter((task) => task.focus_score >= 0)
+    .sort((left, right) => {
+      if (right.focus_score !== left.focus_score) {
+        return right.focus_score - left.focus_score;
+      }
+      return left.title.localeCompare(right.title, "pt-BR", { sensitivity: "base" });
+    })
+    .slice(0, 6);
+}
+
 function getFilteredTasks() {
   return tasks.filter(taskMatchesFilters);
 }
@@ -388,6 +479,75 @@ function renderStats(totals, remindersTotal) {
           <span>${escapeHtml(card.label)}</span>
           <strong>${escapeHtml(card.value)}</strong>
         </div>
+      `
+    )
+    .join("");
+}
+
+function renderTodayFocus() {
+  const today = todayString();
+  const focusTasks = getTodayFocusTasks();
+  const pendingReminders = reminders.filter((reminder) => !reminder.completed);
+  const summaryCards = [
+    {
+      label: "Atrasadas",
+      value: tasks.filter((task) => {
+        const dueInDays = daysUntil(task.due_date);
+        return task.status !== "finalizada" && dueInDays !== null && dueInDays < 0;
+      }).length
+    },
+    {
+      label: "Vencem hoje",
+      value: tasks.filter((task) => task.status !== "finalizada" && daysUntil(task.due_date) === 0).length
+    },
+    {
+      label: "Prioridade alta",
+      value: tasks.filter((task) => task.status !== "finalizada" && normalizePriority(task.priority) === "alta").length
+    },
+    {
+      label: "Lembretes de hoje",
+      value: pendingReminders.filter((reminder) => reminder.reminder_date === today).length
+    }
+  ];
+
+  focusSummary.innerHTML = summaryCards
+    .map(
+      (item) => `
+        <div class="summary-card stat-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </div>
+      `
+    )
+    .join("");
+
+  if (!focusTasks.length) {
+    focusList.innerHTML = `<p class="empty-state">Nada urgente por agora. Voce pode usar este espaco como radar para o que entra em foco ao longo do dia.</p>`;
+    return;
+  }
+
+  focusList.innerHTML = focusTasks
+    .map(
+      (task) => `
+        <article class="focus-item ${focusTone(task)}">
+          <div class="focus-header">
+            <div>
+              <h3>${escapeHtml(task.title)}</h3>
+              <p>${escapeHtml(describeFocus(task))}</p>
+            </div>
+            <span class="focus-score">Foco ${escapeHtml(task.focus_score)}</span>
+          </div>
+          <div class="pill-row">
+            <span class="pill ${statusClass(task.status)}">${escapeHtml(statusLabels[task.status])}</span>
+            <span class="pill ${priorityClass(normalizePriority(task.priority))}">${escapeHtml(priorityLabels[normalizePriority(task.priority)])}</span>
+            <span class="pill neutral">${escapeHtml(`${task.progress}% concluido`)}</span>
+          </div>
+          <div class="focus-meta">
+            <span><strong>Prazo:</strong> ${escapeHtml(normalizeDate(task.due_date))}</span>
+            <span><strong>Categoria:</strong> ${escapeHtml(task.category || "Sem categoria")}</span>
+            <span><strong>Meta:</strong> ${escapeHtml(task.goal || "Sem meta definida")}</span>
+          </div>
+        </article>
       `
     )
     .join("");
@@ -668,6 +828,7 @@ function refreshTaskViews() {
   const insights = buildTaskInsights(filteredTasks);
 
   renderStats(insights.totals, reminders.length);
+  renderTodayFocus();
   renderStatusChart(insights.statusChart);
   renderProgressChart(insights.progressChart);
   renderTasks();
@@ -882,7 +1043,31 @@ function clearTaskFilters() {
   refreshTaskViews();
 }
 
+function applyFocusFilter(event) {
+  const button = event.target.closest("button[data-focus-filter]");
+  if (!button) return;
+
+  const focusFilter = button.dataset.focusFilter;
+
+  if (focusFilter === "today") {
+    filterDueInput.value = "today";
+  }
+  if (focusFilter === "late") {
+    filterDueInput.value = "late";
+  }
+  if (focusFilter === "high") {
+    filterPriorityInput.value = "alta";
+  }
+  if (focusFilter === "execution") {
+    filterStatusInput.value = "execucao";
+  }
+
+  handleTaskFilterChange();
+  taskColumns.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 document.querySelector(".tab-nav").addEventListener("click", handleTabChange);
+document.querySelector(".dashboard").addEventListener("click", applyFocusFilter);
 taskForm.addEventListener("submit", handleTaskSubmit);
 reminderForm.addEventListener("submit", handleReminderSubmit);
 cancelEditButton.addEventListener("click", resetTaskForm);

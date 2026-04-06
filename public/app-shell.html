@@ -121,6 +121,24 @@
           <section class="dashboard">
             <div class="stats-grid" id="stats-grid"></div>
 
+            <article class="panel">
+              <div class="section-heading">
+                <h2>Foco de hoje</h2>
+                <p>Veja primeiro o que merece atencao agora: urgencias, prioridades altas e proximos passos.</p>
+              </div>
+
+              <div id="focus-summary" class="focus-summary"></div>
+
+              <div class="focus-actions">
+                <button type="button" class="ghost-btn" data-focus-filter="today">Ver tarefas que vencem hoje</button>
+                <button type="button" class="ghost-btn" data-focus-filter="late">Ver atrasadas</button>
+                <button type="button" class="ghost-btn" data-focus-filter="high">Ver prioridades altas</button>
+                <button type="button" class="ghost-btn" data-focus-filter="execution">Ver em execucao</button>
+              </div>
+
+              <div id="focus-list" class="focus-list"></div>
+            </article>
+
             <div class="charts-grid">
               <article class="panel">
                 <div class="section-heading">
