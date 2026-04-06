@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Organizador do Sucesso</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Planejamento, foco e resultado</p>
+          <h1>Organizador do Sucesso</h1>
+          <p class="hero-copy">
+            Transforme ideias em execucao, conclua metas e acompanhe seu progresso
+            com graficos e tabelas.
+          </p>
+        </div>
+        <div class="hero-card">
+          <span>Fluxo principal</span>
+          <strong>Ideias → Execucao → Finalizada</strong>
+          <p>Registre, acompanhe e celebre cada avanço.</p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel form-panel">
+          <div class="section-heading">
+            <h2>Nova tarefa ou objetivo</h2>
+            <p>Cadastre atividades, metas e progresso inicial.</p>
+          </div>
+
+          <form id="task-form" class="task-form">
+            <input type="hidden" id="task-id" />
+
+            <label>
+              Titulo
+              <input id="title" name="title" type="text" placeholder="Ex.: Estudar ingles 30 minutos por dia" required />
+            </label>
+
+            <label>
+              Descricao
+              <textarea id="description" name="description" rows="3" placeholder="Detalhes da atividade, contexto ou checklist"></textarea>
+            </label>
+
+            <label>
+              Objetivo / meta
+              <input id="goal" name="goal" type="text" placeholder="Ex.: Completar 20 aulas no mes" />
+            </label>
+
+            <div class="grid-2">
+              <label>
+                Categoria
+                <input id="category" name="category" type="text" placeholder="Ex.: Trabalho, estudos, saude" />
+              </label>
+
+              <label>
+                Status
+                <select id="status" name="status">
+                  <option value="ideia">Ideias</option>
+                  <option value="execucao">Execucao</option>
+                  <option value="finalizada">Finalizada</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid-3">
+              <label>
+                Valor atual
+                <input id="current_value" name="current_value" type="number" min="0" value="0" />
+              </label>
+
+              <label>
+                Meta total
+                <input id="target_value" name="target_value" type="number" min="1" value="100" />
+              </label>
+
+              <label>
+                Prazo
+                <input id="due_date" name="due_date" type="date" />
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="primary-btn">Salvar</button>
+              <button type="button" id="cancel-edit" class="ghost-btn hidden">Cancelar edicao</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="dashboard">
+          <div class="stats-grid" id="stats-grid"></div>
+
+          <div class="charts-grid">
+            <article class="panel">
+              <div class="section-heading">
+                <h2>Distribuicao por status</h2>
+                <p>Veja quantas tarefas estao em cada fase.</p>
+              </div>
+              <div id="status-chart" class="status-chart"></div>
+            </article>
+
+            <article class="panel">
+              <div class="section-heading">
+                <h2>Evolucao das metas</h2>
+                <p>Progresso atual das tarefas cadastradas.</p>
+              </div>
+              <div id="progress-chart" class="progress-chart"></div>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="section-heading">
+              <h2>Tarefas e objetivos</h2>
+              <p>Acompanhe, edite e finalize atividades ao longo da rotina.</p>
+            </div>
+
+            <div id="task-columns" class="task-columns"></div>
+          </article>
+
+          <article class="panel">
+            <div class="section-heading">
+              <h2>Tabela de desempenho</h2>
+              <p>Resumo das metas e percentual de cumprimento.</p>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tarefa</th>
+                    <th>Meta</th>
+                    <th>Status</th>
+                    <th>Progresso</th>
+                    <th>Resultado</th>
+                  </tr>
+                </thead>
+                <tbody id="goal-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

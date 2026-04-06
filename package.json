@@ -1,0 +1,22 @@
+{
+  "name": "organizador-do-sucesso",
+  "version": "1.0.0",
+  "description": "Ferramenta local para organizar rotina, tarefas, metas e progresso.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "rotina",
+    "tarefas",
+    "metas",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2"
+  }
+}
